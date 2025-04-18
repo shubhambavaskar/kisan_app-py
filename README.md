@@ -198,13 +198,3 @@ http://<EC2-IP>/
 ```
 
 You will see the login page with your cartoon-style Kisan logo (also provided in the file uploaded).
-
----
-
-Let me know if you want:
-- Docker version
-- GitHub deploy setup
-- EC2 + RDS separation
-- Hindi/Marathi language switch
-
-Shall I send all in a `.zip` file too?
