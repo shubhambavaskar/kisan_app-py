@@ -1,0 +1,33 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: AWS Login
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        run: |
+          docker build -t my-app .
+
+      - name: Tag & Push to ECR
+        run: |
+          docker tag my-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/my-app:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/my-app:latest
