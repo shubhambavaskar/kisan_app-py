@@ -1,60 +1,63 @@
-name: Deploy to AWS ECS
+name: Deploy to AWS ECS (Production)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: NoBo-web-app
-  CONTAINER_NAME: NoBo-web-app
+  ECR_REPOSITORY: nobo-web-app
+  CONTAINER_NAME: nobo-web-app
 
 jobs:
   deploy:
+    name: Build & Deploy to ECS
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      id-token: write   # for AWS OIDC (recommended)
+
     steps:
-      # 1️⃣ Checkout source code
-      - name: Checkout code
+      # 1. Checkout source
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      # 2️⃣ Configure AWS Credentials
-      - name: Configure AWS Credentials
+      # 2. Configure AWS credentials (OIDC based - Production Best Practice)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 3️⃣ Login to Amazon ECR
+      # 3. Login to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4️⃣ Build Docker image
+      # 4. Build Docker Image
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY .
-
-      # 5️⃣ Tag & Push Docker image to ECR
-      - name: Push image to Amazon ECR
-        run: |
-          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPOSITORY:latest
-          docker tag $ECR_REPOSITORY:latest $IMAGE_URI
-          docker push $IMAGE_URI
+          IMAGE_TAG=${GITHUB_SHA::7}
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker build -t $IMAGE_URI .
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      # 6️⃣ Download current ECS task definition
-      - name: Download ECS task definition
+      # 5. Push image to ECR
+      - name: Push image
+        run: |
+          docker push $IMAGE_URI
+
+      # 6. Download ECS Task Definition
+      - name: Download task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition ${{ secrets.ECS_TASK_FAMILY }} \
             --query taskDefinition > task-def.json
 
-      # 7️⃣ Update task definition with new image
+      # 7. Render new Task Definition with new image
       - name: Update ECS task definition
         run: |
-          cat task-def.json | jq --arg IMAGE "$IMAGE_URI" --arg NAME "$CONTAINER_NAME" '
+          jq --arg IMAGE "$IMAGE_URI" --arg NAME "${{ env.CONTAINER_NAME }}" '
           .containerDefinitions |= map(
             if .name == $NAME then .image = $IMAGE else . end
           )
@@ -66,19 +69,37 @@ jobs:
               .compatibilities,
               .registeredAt,
               .registeredBy
-          )' > new-task-def.json
+          )' task-def.json > new-task-def.json
 
-      # 8️⃣ Register new ECS task definition revision
-      - name: Register new ECS task definition
+      # 8. Register new ECS task definition
+      - name: Register ECS task definition
+        id: task-def
         run: |
-          aws ecs register-task-definition \
-            --cli-input-json file://new-task-def.json
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query "taskDefinition.taskDefinitionArn" \
+            --output text)
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
 
-      # 9️⃣ Deploy new revision to ECS Service
+      # 9. Deploy new version to ECS Service (Zero Downtime)
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
             --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
             --service ${{ secrets.ECS_SERVICE_NAME }} \
-            --task-definition ${{ secrets.ECS_TASK_FAMILY }} \
+            --task-definition $TASK_DEF_ARN \
             --force-new-deployment
+
+      # 10. Wait until service is stable (prevents broken prod)
+      - name: Wait for ECS stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_SERVICE_NAME }}
+
+      # 11. Deployment summary
+      - name: Deployment success
+        run: |
+          echo "Deployment successful"
+          echo "Image: $IMAGE_URI"
+          echo "Task Definition: $TASK_DEF_ARN"
