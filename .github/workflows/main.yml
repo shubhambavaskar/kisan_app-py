@@ -7,8 +7,8 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: my-app
-  CONTAINER_NAME: my-app
+  ECR_REPOSITORY: NoBo-web-app
+  CONTAINER_NAME: NoBo-web-app
 
 jobs:
   deploy:
