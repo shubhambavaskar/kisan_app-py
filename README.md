@@ -253,7 +253,7 @@ Deployment Flow
 
 9) This gives Zero Downtime Deployment.
 
-   Production Benefits
+Production Benefits
 
     | Feature       | Why it matters           |
 | ------------- | ------------------------ |
