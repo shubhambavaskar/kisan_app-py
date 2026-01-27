@@ -198,3 +198,57 @@ http://<EC2-IP>/
 ```
 
 You will see the login page with your cartoon-style Kisan logo (also provided in the file uploaded).
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GitHub Actions Architecture
+
+Below is production-grade Continuous Deployment (CD) design for
+GitHub Actions → ECR → ECS Fargate → ALB → Auto Scaling
+
+This is exactly how real SaaS companies deploy microservices.
+
+High-level Architecture
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+GitHub (Push to main)
+        │
+        ▼
+GitHub Actions (CI/CD)
+        │
+        ▼
+Build Docker Image
+        │
+        ▼
+Push to Amazon ECR
+        │
+        ▼
+Update ECS Task Definition
+        │
+        ▼
+Deploy to ECS Fargate Service
+        │
+        ▼
+Application Load Balancer
+        │
+        ▼
+Auto Scaling based on CPU / Requests
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+Deployment Flow
+
+1) When you push to main branch:
+
+2) GitHub Actions builds Docker image
+
+3) Pushes image to Amazon ECR
+
+4) ECS pulls latest image
+
+5) New containers start
+
+6) ALB routes traffic
+
+7) Old containers are stopped
+
+8) Auto Scaling adjusts based on traffic
+
+9) This gives Zero Downtime Deployment.
