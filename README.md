@@ -253,13 +253,10 @@ Deployment Flow
 
 9) This gives Zero Downtime Deployment.
 
-Production Benefits
-
-    | Feature       | Why it matters           |
-| ------------- | ------------------------ |
-| Zero-downtime | ALB + rolling deployment |
-| Auto scaling  | Pay only for traffic     |
-| No servers    | Fargate manages infra    |
-| Secure        | IAM + private networking |
-| Fast deploy   | ~2–3 minutes             |
-
+📊 6. Production Benefits
+Feature	Why it matters
+Zero-downtime	ALB + rolling deployment
+Auto scaling	Pay only for traffic
+No servers	Fargate manages infra
+Secure	IAM + private networking
+Fast deploy	~2–3 minutes
